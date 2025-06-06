@@ -6,6 +6,7 @@
 package tofu
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"sync"
@@ -18,6 +19,7 @@ import (
 	"github.com/opentofu/opentofu/internal/addrs"
 	"github.com/opentofu/opentofu/internal/configs"
 	"github.com/opentofu/opentofu/internal/lang"
+	"github.com/opentofu/opentofu/internal/lang/marks"
 	"github.com/opentofu/opentofu/internal/moduletest"
 	"github.com/opentofu/opentofu/internal/plans"
 	"github.com/opentofu/opentofu/internal/providers"
@@ -107,7 +109,7 @@ func (ctx *TestContext) evaluate(state *states.SyncState, changes *plans.Changes
 	defer func() {
 		for addr, inst := range providerInstances {
 			log.Printf("[INFO] Shutting down test provider %s", addr)
-			inst.Close()
+			inst.Close(context.TODO())
 		}
 	}()
 
@@ -184,6 +186,9 @@ func (ctx *TestContext) evaluate(state *states.SyncState, changes *plans.Changes
 
 		runVal, hclDiags := rule.Condition.Value(hclCtx)
 		diags = diags.Append(hclDiags)
+
+		runVal, deprDiags := marks.ExtractDeprecatedDiagnosticsWithExpr(runVal, rule.Condition)
+		diags = diags.Append(deprDiags)
 
 		run.Diagnostics = run.Diagnostics.Append(diags)
 		if diags.HasErrors() {
